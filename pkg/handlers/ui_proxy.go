@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
+	"text/template"
 
 	"github.com/mjosc/rp-cache/pkg/shared"
 )
@@ -28,12 +28,28 @@ func NewUIProxy(dst string) (shared.UIProxy, error) {
 			// For the webserver approach, we'd check whether the response was a 304 not modified. If so, retreive
 			// the HTML from the body of the response, updated the cache, and forward the response to the client.
 
-			str := string(copy)
-			updated := strings.Replace(str, "{{ .Name }}", "Matt", 1)
-			data := []byte(updated)
+			w := NewResponseWriter()
 
-			res.Header["Content-Length"] = []string{strconv.Itoa(len(data))}
-			res.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+			data := struct {
+				Name string
+			}{
+				Name: "Matt",
+			}
+
+			html := string(copy)
+			tmpl, err := template.New("test").Parse(html)
+			if err != nil {
+				return err
+			}
+
+			if err := tmpl.Execute(w, &data); err != nil {
+				return err
+			}
+
+			body := w.Body
+
+			res.Header["Content-Length"] = []string{strconv.Itoa(body.Len())}
+			res.Body = ioutil.NopCloser(w.Body)
 
 			return nil
 		},
@@ -44,4 +60,29 @@ func NewUIProxy(dst string) (shared.UIProxy, error) {
 		return nil, err
 	}
 	return proxy, nil
+}
+
+func NewResponseWriter() *ResponseWriter {
+	return &ResponseWriter{
+		Body: new(bytes.Buffer),
+	}
+}
+
+type ResponseWriter struct {
+	Body *bytes.Buffer
+}
+
+func (rw *ResponseWriter) Header() http.Header {
+	panic("not implemented")
+}
+
+func (rw *ResponseWriter) Write(buf []byte) (int, error) {
+	if rw.Body != nil {
+		rw.Body.Write(buf)
+	}
+	return len(buf), nil
+}
+
+func (rw *ResponseWriter) WriteHeader(statusCode int) {
+	panic("not implemented")
 }
