@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -22,7 +20,13 @@ func NewUIProxy(dst string) (shared.UIProxy, error) {
 				return nil
 			}
 
-			// Do caching stuff here.
+			// Do caching stuff here
+			//
+			// This will only work if using a webserver to host the HTML. Using S3 will require a service
+			// object to communicate with the bucket, check the version, and then update the cache accordingly.
+			//
+			// For the webserver approach, we'd check whether the response was a 304 not modified. If so, retreive
+			// the HTML from the body of the response, updated the cache, and forward the response to the client.
 
 			str := string(copy)
 			updated := strings.Replace(str, "{{ .Name }}", "Matt", 1)
@@ -40,26 +44,4 @@ func NewUIProxy(dst string) (shared.UIProxy, error) {
 		return nil, err
 	}
 	return proxy, nil
-}
-
-func NewResponseWriter() http.ResponseWriter {
-	return &ResponseWriter{}
-}
-
-type ResponseWriter struct {
-	Body io.ReadCloser
-}
-
-func (w *ResponseWriter) Header() http.Header {
-	return nil
-}
-
-func (w *ResponseWriter) Write(data []byte) (int, error) {
-	fmt.Println("hello")
-	w.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-	return len(data), nil
-}
-
-func (w *ResponseWriter) WriteHeader(statusCode int) {
-
 }
